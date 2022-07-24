@@ -12,8 +12,8 @@ python3 model.py [-t]
 convert model from .h5 to json in order to consume inside of node 
 ```
 tensorflowjs_converter --input_format=keras --weight_shard_size_bytes {WEIGHT_SHARD_SIZE_BYTES} ./name_of_in.h5 ./name_of_out
-```![test](https://user-images.githubusercontent.com/87715226/180664081-ddc02845-838b-46fc-a2d9-1ea65821a253.gif)
 ```
+
 
 ---
 **Back**
@@ -30,3 +30,5 @@ RN app to send images to backend and display classification
 ```
   expo start
 ```
+
+![](https://github.com/Xenos-134/Flowers/blob/main/test2.gif)
