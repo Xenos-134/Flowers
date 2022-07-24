@@ -10,6 +10,10 @@ const fs = require("fs");
 const sharp = require('sharp');
 require('@tensorflow/tfjs-node');
 const multer = require("multer");
+var cors = require('cors');
+let bodyParser = require('body-parser');
+const fsExtra = require('fs-extra');
+
 //***************************************************
 //        [LIBRARIIES IMPORTS] [END]
 //***************************************************
@@ -27,13 +31,21 @@ var model;
 
 
 const storage = multer.diskStorage({
-    destination: "./uploads/",
-    filename: function (req, file, cb) {
-      cb(null,  "test_image_" + Date.now() + "." + file.originalname.split(".").pop());
+    destination(req, file, callback){
+        callback(null, "./media")
     },
-  });
+    filename(req, file, callback){
+        console.log("..........",file);
+        callback(null, file.originalname.split(".")[0]+Date.now()+".jpg");
+    }
+})
   
-  const diskStorage = multer({ storage: storage });
+const upload = multer({ storage });
+
+app.use(cors());
+app.use(bodyParser.json());
+
+
 
 
 //***************************************************
@@ -44,15 +56,19 @@ app.get("/", (req, res) => {
     return res.send("HELLO THERE");
 })
 
-app.post("/evaluate", diskStorage.single("image"), async (req, res) => {
-    console.log("RECEIVED REQUEST TO EVALUATE ", req.file);
-    classifyLocalImage("./uploads/" + req.file.filename);
-    return res.send("RESPONSE FOR EVALUATION");
+app.post("/evaluate", upload.any(), async (req, res) => {
+    console.log("RECEIVED REQUEST TO EVALUATE ", req.files);
+    const image_class = await classifyLocalImage("./media/" + req.files[0].filename);
+    removeAllImages();
+    return res.send(image_class);
 })
 
 //***************************************************
 //             [ROUTES] [END]
 //***************************************************
+function removeAllImages() {
+    fsExtra.emptyDir("./media");
+}
 
 
 
@@ -71,7 +87,7 @@ async function loadModel() {
 async function preprocessImage(image_name) {
     const output_image_name = image_name.split(".jpg")[0]+"r.jpg"
     await sharp(image_name)
-        .resize(180, 180)
+        .resize(224, 224)
         .toFile(output_image_name);
 
     return output_image_name;
@@ -83,14 +99,16 @@ async function classifyLocalImage(image_name) {
     const output_image_name = await preprocessImage(image_name);
     var tensor = readImage(output_image_name)
 
-    tensor = tensor.reshape([1, 180, 180, 3]);
+    tensor = tensor.reshape([1, 224, 224, 3]);
     (await tensor.data())[1] = -10;
 
     //console.log( await tensor.div(255).data() )
     var result = model.predict(tensor.div(255));
+    console.log(await tensor.div(255).data())
     result = Array.from(await result.data());
+    console.log(result);
     console.log(FLOWER_LABELS[result.indexOf(Math.max(...result))]);
-    return FLOWER_LABELS[result.indexOf(Math.max(...result))]
+    return {class: FLOWER_LABELS[result.indexOf(Math.max(...result))], probs: result};
 }
   
 

@@ -42,15 +42,17 @@ import json
 FLOWER_LABELS = ["daisy", "dandelion", "roses", "sunflowers", "tulips"];
 
 def vgg16_image_preprocess():
+#===========================================================
+#              [DATASET LOAD] [START]
+#===========================================================
     dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
     data_dir = tf.keras.utils.get_file('flower_photos', origin=dataset_url, untar=True)
     data_dir = pathlib.Path(data_dir)
     image_count = len(list(data_dir.glob('*/*.jpg')))
     print(image_count)
-    roses = list(data_dir.glob('roses/*'))
     batch_size = 32
-    img_height = 180
-    img_width = 180
+    img_height = 224
+    img_width = 224
 
     train_ds = tf.keras.utils.image_dataset_from_directory(
         data_dir,
@@ -70,50 +72,42 @@ def vgg16_image_preprocess():
 
     class_names = train_ds.class_names
     print(class_names)
-
     AUTOTUNE = tf.data.AUTOTUNE
-
-    train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
+#===========================================================
+#              [DATASET LOAD] [END]
+#===========================================================
+#===========================================================
+#              [PREPROCESS] [START]
+#===========================================================
+    train_ds = train_ds.cache().prefetch(buffer_size=AUTOTUNE)
+    
     val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
     normalization_layer = layers.Rescaling(1./255)
     normalized_train_ds = train_ds.map(lambda x, y: (normalization_layer(x), y))
+
     normalized_val_ds = val_ds.map(lambda x, y: (normalization_layer(x), y))
-    image_batch, labels_batch = next(iter(normalized_train_ds))
-    first_image = image_batch[0]
-    # Notice the pixel values are now in `[0,1]`.
-    print(np.min(first_image), np.max(first_image))
+
+
 
     num_classes = len(class_names)
+#===========================================================
+#              [PREPROCESS] [END]
+#===========================================================
 
-
-    ''' 
     model = Sequential([
-        layers.Conv2D(16, 3, padding='same', activation='relu'),
-        layers.MaxPooling2D(),
         layers.Conv2D(32, 3, padding='same', activation='relu'),
+        layers.MaxPooling2D(),
+        layers.Conv2D(64, 3, padding='same', activation='relu'),
         layers.MaxPooling2D(),
         layers.Conv2D(64, 3, padding='same', activation='relu'),
         layers.MaxPooling2D(),
         layers.Flatten(),
         layers.Dense(128, activation='relu'),
-        layers.Dense(num_classes)
-    ])'''
-
-
-    model = Sequential([
-        layers.Conv2D(16, 3, padding='same', activation='relu'),
-        layers.MaxPooling2D(),
-        layers.Conv2D(32, 3, padding='same', activation='relu'),
-        layers.MaxPooling2D(),
-        layers.Conv2D(64, 3, padding='same', activation='relu'),
-        layers.MaxPooling2D(),
-        layers.Flatten(),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(num_classes)
+        layers.Dense(num_classes,  activation='softmax')
         ])
 
 
-    model.compile(optimizer='adam',
+    model.compile(optimizer='rmsprop',
               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
               metrics=['accuracy'])
 
@@ -141,7 +135,7 @@ def classify():
         validation_split=0.2,
         subset="training",
         seed=123,
-        image_size=(180, 180),
+        image_size=(224, 224),
         batch_size=10)
 
 
@@ -152,7 +146,7 @@ def classify():
     #model.load_weights("./weights.h5")
     image = tf.keras.preprocessing.image.load_img(
         "./test.jpg",
-        target_size = (180, 180)
+        target_size = (224, 224)
         )
     input_arr = tf.keras.preprocessing.image.img_to_array(image)
     input_arr = np.array([input_arr])  # Convert single image to a batch.
